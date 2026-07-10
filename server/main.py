@@ -6,6 +6,9 @@ import vgamepad as vg
 import json
 import asyncio
 import os
+import subprocess
+import threading
+from cemuhook import CemuhookProtocol
 
 app = FastAPI()
 
@@ -18,13 +21,24 @@ app.add_middleware(
 )
 
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
-
 if os.path.exists(frontend_path):
     app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
-
     @app.get("/")
     async def serve_index():
         return FileResponse(os.path.join(frontend_path, "index.html"))
+
+# Global cemuhook server reference
+cemuhook_server = None
+
+@app.on_event("startup")
+async def startup_event():
+    global cemuhook_server
+    loop = asyncio.get_running_loop()
+    transport, protocol = await loop.create_datagram_endpoint(
+        lambda: CemuhookProtocol(),
+        local_addr=('0.0.0.0', 26760)
+    )
+    cemuhook_server = protocol
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -53,6 +67,10 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             data = await websocket.receive_text()
             state = json.loads(data)
+            
+            # Send motion data to Cemuhook server to broadcast
+            if cemuhook_server:
+                cemuhook_server.broadcast_data(state)
             
             gamepad.reset()
             
@@ -109,7 +127,27 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         print("Phone disconnected")
 
+def start_localtunnel():
+    print("Starting LocalTunnel...")
+    process = subprocess.Popen(["npx", "-y", "localtunnel", "--port", "8000"], 
+                               stdout=subprocess.PIPE, 
+                               stderr=subprocess.STDOUT, 
+                               text=True)
+    for line in iter(process.stdout.readline, ''):
+        if "your url is:" in line.lower():
+            url = line.split("is:")[1].strip()
+            print(f"\n======================================")
+            print(f"🌍 Remote Connection Enabled!")
+            print(f"Open this URL on your phone's browser (even on cellular data):")
+            print(f"{url}")
+            print(f"======================================\n")
+            break
+
 if __name__ == "__main__":
+    # Start localtunnel in background
+    lt_thread = threading.Thread(target=start_localtunnel, daemon=True)
+    lt_thread.start()
+    
     import socket
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -121,8 +159,7 @@ if __name__ == "__main__":
         s.close()
     
     print(f"\n======================================")
-    print(f"Phone Console Server Started!")
-    print(f"Open this URL on your phone's browser:")
+    print(f"📱 Local WiFi Connection:")
     print(f"http://{IP}:8000")
     print(f"======================================\n")
     

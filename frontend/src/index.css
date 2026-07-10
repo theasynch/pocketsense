@@ -299,3 +299,18 @@ body, html {
     padding: 20px;
   }
 }
+
+.start-btn {
+  padding: 15px 30px;
+  font-size: 20px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  margin-top: 20px;
+  box-shadow: 0 4px 15px var(--accent-glow);
+}
+.start-btn:active {
+  transform: scale(0.95);
+}

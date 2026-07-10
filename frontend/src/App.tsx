@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import './index.css';
 
-// Initial state matching the server
 const initialState = {
   buttons: {
     square: false, cross: false, circle: false, triangle: false,
@@ -17,24 +16,48 @@ const initialState = {
   },
   triggers: {
     l2: 0.0, r2: 0.0
+  },
+  motion: {
+    accelX: 0.0, accelY: 0.0, accelZ: 0.0,
+    gyroPitch: 0.0, gyroYaw: 0.0, gyroRoll: 0.0
   }
 };
 
 function App() {
   const [connected, setConnected] = useState(false);
-  const [connecting, setConnecting] = useState(true);
-  const wsRef = useRef<WebSocket | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [started, setStarted] = useState(false);
   
-  // We use a ref for state to send it continuously without triggering re-renders
+  const wsRef = useRef<WebSocket | null>(null);
   const stateRef = useRef(JSON.parse(JSON.stringify(initialState)));
   const loopRef = useRef<number>(0);
 
-  useEffect(() => {
-    // Determine WebSocket URL based on current host
-    const host = window.location.hostname;
-    // For local dev, you might connect to localhost:8000
-    const port = window.location.port === '5173' ? '8000' : window.location.port;
-    const wsUrl = `ws://${host}:${port}/ws`;
+  const startConnection = async () => {
+    // Request device motion permission if on iOS 13+
+    if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+      try {
+        const permissionState = await (DeviceMotionEvent as any).requestPermission();
+        if (permissionState === 'granted') {
+          window.addEventListener('devicemotion', handleMotion);
+        }
+      } catch (e) {
+        console.error("Gyro permission error", e);
+      }
+    } else {
+      window.addEventListener('devicemotion', handleMotion);
+    }
+
+    setStarted(true);
+    setConnecting(true);
+
+    let wsUrl = "";
+    // Check if we are on localtunnel, ngrok, or local IP
+    if (window.location.protocol === 'https:') {
+      wsUrl = `wss://${window.location.hostname}/ws`;
+    } else {
+      const port = window.location.port === '5173' ? '8000' : window.location.port;
+      wsUrl = `ws://${window.location.hostname}:${port}/ws`;
+    }
     
     console.log("Connecting to", wsUrl);
     const ws = new WebSocket(wsUrl);
@@ -63,10 +86,28 @@ function App() {
       loopRef.current = requestAnimationFrame(loop);
     };
     loopRef.current = requestAnimationFrame(loop);
+  };
 
+  const handleMotion = (event: DeviceMotionEvent) => {
+    // DeviceMotionEvent uses m/s^2 for accel, Cemuhook expects Gs (1G = 9.8m/s^2)
+    if (event.accelerationIncludingGravity) {
+      stateRef.current.motion.accelX = -(event.accelerationIncludingGravity.x || 0) / 9.8;
+      stateRef.current.motion.accelY = -(event.accelerationIncludingGravity.y || 0) / 9.8;
+      stateRef.current.motion.accelZ = -(event.accelerationIncludingGravity.z || 0) / 9.8;
+    }
+    // rotationRate is in degrees/second
+    if (event.rotationRate) {
+      stateRef.current.motion.gyroPitch = event.rotationRate.alpha || 0;
+      stateRef.current.motion.gyroYaw = event.rotationRate.beta || 0;
+      stateRef.current.motion.gyroRoll = event.rotationRate.gamma || 0;
+    }
+  };
+
+  useEffect(() => {
     return () => {
       if (loopRef.current) cancelAnimationFrame(loopRef.current);
-      ws.close();
+      if (wsRef.current) wsRef.current.close();
+      window.removeEventListener('devicemotion', handleMotion);
     };
   }, []);
 
@@ -74,7 +115,6 @@ function App() {
     stateRef.current.buttons[btn] = val;
     if (btn === 'l2_btn') stateRef.current.triggers.l2 = val ? 1.0 : 0.0;
     if (btn === 'r2_btn') stateRef.current.triggers.r2 = val ? 1.0 : 0.0;
-    // Trigger re-render for UI feedback
     document.getElementById(`btn-${btn}`)?.classList.toggle('active', val);
   }, []);
 
@@ -83,7 +123,6 @@ function App() {
     document.getElementById(`dpad-${dir}`)?.classList.toggle('active', val);
   }, []);
 
-  // Joystick Logic
   const handleJoystick = useCallback((e: React.TouchEvent | React.MouseEvent, side: 'l' | 'r') => {
     e.preventDefault();
     const zone = document.getElementById(`joy-zone-${side}`);
@@ -96,11 +135,10 @@ function App() {
 
     let clientX, clientY;
     if ('touches' in e) {
-      // Find the touch associated with this zone
       const touch = Array.from(e.touches).find(t => 
         t.clientX >= rect.left && t.clientX <= rect.right &&
         t.clientY >= rect.top && t.clientY <= rect.bottom
-      ) || e.changedTouches[0]; // fallback
+      ) || e.changedTouches[0];
       clientX = touch.clientX;
       clientY = touch.clientY;
     } else {
@@ -119,8 +157,6 @@ function App() {
     }
 
     knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    
-    // Normalize -1.0 to 1.0
     stateRef.current.sticks[`${side}x`] = dx / maxDist;
     stateRef.current.sticks[`${side}y`] = dy / maxDist;
   }, []);
@@ -132,12 +168,9 @@ function App() {
       stateRef.current.sticks[`${side}x`] = 0.0;
       stateRef.current.sticks[`${side}y`] = 0.0;
     }
-    // Also reset thumb click if any
     setBtn(`${side}3`, false);
   }, [setBtn]);
 
-
-  // Touch handlers to wrap mouse/touch for generic buttons
   const btnProps = (id: string, type: 'btn' | 'dpad', key: string) => ({
     id,
     onTouchStart: (e: React.TouchEvent) => { e.preventDefault(); type === 'btn' ? setBtn(key, true) : setDpad(key, true); },
@@ -150,7 +183,17 @@ function App() {
   return (
     <>
       <div className="rotate-message">Please rotate your device</div>
-      {!connected && (
+      
+      {!started && (
+        <div className="overlay start-overlay">
+          <h1>PocketSense</h1>
+          <button className="start-btn" onClick={startConnection}>
+            Connect & Enable Gyro
+          </button>
+        </div>
+      )}
+
+      {started && !connected && (
         <div className="overlay">
           <h1>{connecting ? 'CONNECTING...' : 'DISCONNECTED'}</h1>
           <p>Make sure the server is running on the laptop.</p>
@@ -158,7 +201,6 @@ function App() {
       )}
 
       <div className="controller-container">
-        {/* Left Section */}
         <div className="left-section">
           <div className="shoulder-container left">
             <div className="trigger-btn" {...btnProps('btn-l2_btn', 'btn', 'l2_btn')}>L2</div>
@@ -188,10 +230,8 @@ function App() {
           </div>
         </div>
 
-        {/* Center Section */}
         <div className="center-section">
           <div className="glass-panel touchpad" {...btnProps('btn-touchpad', 'btn', 'touchpad')}>
-            {/* Touchpad Area */}
           </div>
           
           <div className="center-buttons">
@@ -202,7 +242,6 @@ function App() {
           <div className="ps-button" {...btnProps('btn-ps', 'btn', 'ps')}>PS</div>
         </div>
 
-        {/* Right Section */}
         <div className="right-section">
           <div className="shoulder-container right">
             <div className="shoulder-btn" {...btnProps('btn-r1', 'btn', 'r1')}>R1</div>
