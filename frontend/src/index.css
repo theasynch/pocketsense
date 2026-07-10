@@ -1,0 +1,301 @@
+:root {
+  --bg-color: #0f0f13;
+  --panel-bg: rgba(255, 255, 255, 0.05);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --text-color: #ffffff;
+  --accent-color: #0070d1; /* PlayStation blue */
+  --accent-glow: rgba(0, 112, 209, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.controller-container {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr;
+  position: relative;
+  background: radial-gradient(circle at center, #1a1a24 0%, var(--bg-color) 100%);
+}
+
+.glass-panel {
+  background: var(--panel-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Left Section: D-Pad, L-Stick, L1, L2 */
+.left-section {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+}
+
+/* Center Section: Touchpad, PS button, Options, Share */
+.center-section {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+
+/* Right Section: Action Buttons, R-Stick, R1, R2 */
+.right-section {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+}
+
+/* Controls */
+.joystick-zone {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  position: absolute;
+  bottom: 20px;
+}
+
+.joystick-zone.left {
+  right: 20px; /* Offset towards center slightly */
+}
+
+.joystick-zone.right {
+  left: 20px;
+}
+
+.joystick-knob {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #2a2a35, #1a1a24);
+  box-shadow: 
+    inset 0 2px 5px rgba(255,255,255,0.1),
+    0 5px 15px rgba(0,0,0,0.5);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: transform 0.05s linear;
+}
+
+/* D-Pad */
+.dpad-container {
+  width: 140px;
+  height: 140px;
+  position: absolute;
+  top: 60px;
+  left: 20px;
+}
+
+.dpad-btn {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.dpad-btn:active, .dpad-btn.active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.dpad-up { top: 0; left: 45px; width: 50px; height: 50px; }
+.dpad-down { bottom: 0; left: 45px; width: 50px; height: 50px; }
+.dpad-left { top: 45px; left: 0; width: 50px; height: 50px; }
+.dpad-right { top: 45px; right: 0; width: 50px; height: 50px; }
+
+/* Action Buttons */
+.action-buttons {
+  width: 140px;
+  height: 140px;
+  position: absolute;
+  top: 60px;
+  right: 20px;
+}
+
+.action-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  position: absolute;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  font-size: 20px;
+  box-shadow: inset 0 2px 5px rgba(255,255,255,0.1);
+}
+
+.action-btn:active, .action-btn.active {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(0.95);
+}
+
+.btn-triangle { top: 0; left: 45px; color: #00ff00; }
+.btn-cross { bottom: 0; left: 45px; color: #5c5cff; }
+.btn-square { top: 45px; left: 0; color: #ff5c99; }
+.btn-circle { top: 45px; right: 0; color: #ff3333; }
+
+/* Shoulders and Triggers */
+.shoulder-container {
+  position: absolute;
+  top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.shoulder-container.left { left: 20px; }
+.shoulder-container.right { right: 20px; }
+
+.trigger-btn, .shoulder-btn {
+  width: 60px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: #ccc;
+}
+
+.trigger-btn:active, .trigger-btn.active, .shoulder-btn:active, .shoulder-btn.active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Touchpad */
+.touchpad {
+  width: 80%;
+  height: 120px;
+  border-radius: 15px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.touchpad.active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Center Buttons */
+.center-buttons {
+  display: flex;
+  gap: 40px;
+  margin-top: 20px;
+}
+
+.small-btn {
+  width: 30px;
+  height: 50px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  font-size: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+.small-btn:active, .small-btn.active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.ps-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+}
+.ps-button:active, .ps-button.active {
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+
+/* Overlay for connecting */
+.overlay {
+  position: absolute;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  backdrop-filter: blur(5px);
+  flex-direction: column;
+}
+
+.overlay h1 {
+  font-weight: 300;
+  letter-spacing: 2px;
+}
+
+.rotate-message {
+  display: none;
+}
+
+@media (orientation: portrait) {
+  .controller-container {
+    display: none;
+  }
+  .rotate-message {
+    display: flex;
+    position: absolute;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: var(--bg-color);
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    text-align: center;
+    padding: 20px;
+  }
+}
